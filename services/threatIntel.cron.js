@@ -725,7 +725,7 @@ async function upsertIndicators(items) {
 
   if (!valid.length) {
     logger.warn("[upsertIndicators] No valid indicators to insert.");
-    return 0;
+    return { created: 0, updated: 0, total: 0 };
   }
 
   logger.info(`[upsertIndicators] Validated ${valid.length} indicators, inserting into database...`);
@@ -733,12 +733,26 @@ async function upsertIndicators(items) {
   try {
     // Batch processing to avoid packet size errors
     const BATCH_SIZE = 500; // Smaller batches to avoid max_allowed_packet error
-    let totalInserted = 0;
+    let totalCreated = 0;
+    let totalUpdated = 0;
+    let totalProcessed = 0;
 
     for (let i = 0; i < valid.length; i += BATCH_SIZE) {
       const batch = valid.slice(i, i + BATCH_SIZE);
       
       logger.info(`[upsertIndicators] Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(valid.length / BATCH_SIZE)} (${batch.length} items)`);
+      
+      // Check which records already exist
+      const fingerprints = batch.map(ind => ind.fingerprint);
+      const existingRecords = await ThreatIndicator.findAll({
+        where: { fingerprint: fingerprints },
+        attributes: ['fingerprint'],
+        raw: true
+      });
+      
+      const existingFingerprints = new Set(existingRecords.map(r => r.fingerprint));
+      const newRecords = batch.filter(ind => !existingFingerprints.has(ind.fingerprint));
+      const updateRecords = batch.filter(ind => existingFingerprints.has(ind.fingerprint));
       
       await ThreatIndicator.bulkCreate(batch, {
         updateOnDuplicate: [
@@ -762,13 +776,19 @@ async function upsertIndicators(items) {
         { where: { fingerprint: fps } }
       );
 
-      totalInserted += batch.length;
-      logger.info(`[upsertIndicators] ✓ Batch completed (${totalInserted}/${valid.length})`);
+      totalCreated += newRecords.length;
+      totalUpdated += updateRecords.length;
+      totalProcessed += batch.length;
+      
+      logger.info(`[upsertIndicators] ✓ Batch completed: ${newRecords.length} new, ${updateRecords.length} updated (${totalProcessed}/${valid.length})`);
+      
+      // Small delay to prevent overwhelming the database
+      await new Promise(resolve => setTimeout(resolve, 50));
     }
 
-    logger.info(`[upsertIndicators] ✓ Successfully upserted ${totalInserted} indicators`);
+    logger.info(`[upsertIndicators] ✓ Complete: ${totalCreated} new entries, ${totalUpdated} updated, ${totalProcessed} total processed`);
     
-    return totalInserted;
+    return { created: totalCreated, updated: totalUpdated, total: totalProcessed };
   } catch (error) {
     logger.error(`[upsertIndicators] ✗ Database error: ${error.message}`);
     logger.error(error.stack);
@@ -979,7 +999,12 @@ function parseBazaarYaraFile(filePath) {
 
 async function processIOCFeeds() {
   const feedsDir = ensureFeedsPath();
-  let totalIndicators = 0;
+  const stats = {
+    totalCreated: 0,
+    totalUpdated: 0,
+    totalProcessed: 0,
+    sources: {}
+  };
 
   logger.info(`[processIOCFeeds] Starting to process feeds from: ${feedsDir}`);
 
@@ -1010,12 +1035,16 @@ async function processIOCFeeds() {
         logger.info(`[processIOCFeeds] Parsed ${indicators.length} indicators from ${config.source}`);
 
         if (indicators.length > 0) {
-          const count = await upsertIndicators(indicators);
-          totalIndicators += count;
-          logger.info(`[processIOCFeeds] ✓ Inserted ${count} indicators from ${config.source}`);
+          const result = await upsertIndicators(indicators);
+          stats.totalCreated += result.created;
+          stats.totalUpdated += result.updated;
+          stats.totalProcessed += result.total;
+          stats.sources[config.source] = result;
+          logger.info(`[processIOCFeeds] ✓ ${config.source}: ${result.created} new, ${result.updated} updated`);
         }
       } catch (error) {
         logger.error(`[processIOCFeeds] ✗ Error processing ${config.source}: ${error.message}`);
+        stats.sources[config.source] = { error: error.message };
       }
     } else {
       logger.info(`[processIOCFeeds] File not found: ${config.file}`);
@@ -1035,8 +1064,11 @@ async function processIOCFeeds() {
     try {
       const indicators = parseOTXPulse(filePath);
       if (indicators.length > 0) {
-        const count = await upsertIndicators(indicators);
-        totalIndicators += count;
+        const result = await upsertIndicators(indicators);
+        stats.totalCreated += result.created;
+        stats.totalUpdated += result.updated;
+        stats.totalProcessed += result.total;
+        stats.sources['OTX'] = result;
       }
     } catch (error) {
       logger.error(`[processIOCFeeds] ✗ Error processing ${otxFile}: ${error.message}`);
@@ -1056,8 +1088,11 @@ async function processIOCFeeds() {
     try {
       const indicators = parsePhishStatsFile(filePath);
       if (indicators.length > 0) {
-        const count = await upsertIndicators(indicators);
-        totalIndicators += count;
+        const result = await upsertIndicators(indicators);
+        stats.totalCreated += result.created;
+        stats.totalUpdated += result.updated;
+        stats.totalProcessed += result.total;
+        stats.sources['PhishStats'] = result;
       }
     } catch (error) {
       logger.error(`[processIOCFeeds] ✗ Error processing ${psFile}: ${error.message}`);
@@ -1071,16 +1106,26 @@ async function processIOCFeeds() {
     try {
       const indicators = parseBazaarYaraFile(bazaarYaraFile);
       if (indicators.length > 0) {
-        const count = await upsertIndicators(indicators);
-        totalIndicators += count;
+        const result = await upsertIndicators(indicators);
+        stats.totalCreated += result.created;
+        stats.totalUpdated += result.updated;
+        stats.totalProcessed += result.total;
+        stats.sources['BazaarYARA'] = result;
       }
     } catch (error) {
       logger.error(`[processIOCFeeds] ✗ Error processing Bazaar YARA: ${error.message}`);
     }
   }
 
-  logger.info(`[processIOCFeeds] ✓ COMPLETE: Processed ${totalIndicators} IOCs from all feeds`);
-  return totalIndicators;
+  logger.info(`\n[processIOCFeeds] ═══════════════════════════════════════════`);
+  logger.info(`[processIOCFeeds] FINAL SUMMARY:`);
+  logger.info(`[processIOCFeeds] • New entries added: ${stats.totalCreated}`);
+  logger.info(`[processIOCFeeds] • Existing entries updated: ${stats.totalUpdated}`);
+  logger.info(`[processIOCFeeds] • Total records processed: ${stats.totalProcessed}`);
+  logger.info(`[processIOCFeeds] • Deduplication rate: ${stats.totalProcessed > 0 ? ((stats.totalUpdated / stats.totalProcessed) * 100).toFixed(1) : 0}%`);
+  logger.info(`[processIOCFeeds] ═══════════════════════════════════════════\n`);
+
+  return stats;
 }
 
 // ============================================================

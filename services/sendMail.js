@@ -5,7 +5,7 @@ const sendMail = async (to, subject, html) => {
     const { MAILGUN_DOMAIN, MAILGUN_SEND_KEY } = process.env;
 
     const formData = new FormData();
-    formData.append('from', `CNC-419 Project <deltati@${MAILGUN_DOMAIN}>`);
+    formData.append('from', `CNC-419 Project <noreply@${MAILGUN_DOMAIN}>`);
     formData.append('to', to);
     formData.append('subject', subject);
     formData.append('html', html);
