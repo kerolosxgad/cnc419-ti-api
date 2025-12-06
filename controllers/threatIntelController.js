@@ -4,9 +4,7 @@ const { ThreatIndicator } = require("../models/threatIndicator");
 const severityClassifier = require("../services/severityClassifier");
 const threatIntelService = require("../services/threatIntel.cron");
 
-/**
- * Search for IOCs by value, type, or source
- */
+// Search for IOCs by value, type, or source
 const searchIOCs = async (req, res) => {
   try {
     const {
@@ -64,12 +62,10 @@ const searchIOCs = async (req, res) => {
   }
 };
 
-/**
- * Get details of a specific IOC by ID
- */
+// Get details of a specific IOC by ID
 const getIOCDetails = async (req, res) => {
   try {
-    const { id } = req.params;
+    const { id } = req.body;
 
     const ioc = await ThreatIndicator.findByPk(id);
 
@@ -94,17 +90,15 @@ const getIOCDetails = async (req, res) => {
   }
 };
 
-/**
- * Correlate IOCs - Find related indicators
- */
+// Correlate IOCs - Find related indicators
 const correlateIOCs = async (req, res) => {
   try {
-    const { value } = req.query;
+    const { value } = req.body;
 
     if (!value) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        message: "Value parameter is required" 
+        message: "Value parameter is required"
       });
     }
 
@@ -176,9 +170,7 @@ const correlateIOCs = async (req, res) => {
   }
 };
 
-/**
- * Get IOC statistics
- */
+// Get IOC statistics
 const getStatistics = async (req, res) => {
   try {
     // Get basic stats from service
@@ -259,12 +251,10 @@ const getStatistics = async (req, res) => {
   }
 };
 
-/**
- * Generate comprehensive summary report
- */
+// Generate comprehensive summary report
 const getSummaryReport = async (req, res) => {
   try {
-    const { timeRange = '7d' } = req.query;
+    const { timeRange } = req.query;
 
     // Calculate time range
     let startDate;
@@ -294,7 +284,7 @@ const getSummaryReport = async (req, res) => {
       }
     });
 
-    // Get total statistics
+    // Get total statistics (overall, but we'll use period-specific for totalIOCs)
     const totalStats = await threatIntelService.getStats();
 
     // Calculate severity statistics for the period
@@ -315,7 +305,7 @@ const getSummaryReport = async (req, res) => {
       return acc;
     }, {});
 
-    // Get top threats (critical and high severity)
+    // Get top threats (critical and high severity) within the period
     const topThreats = await ThreatIndicator.findAll({
       where: {
         severity: { [Op.in]: ['critical', 'high'] },
@@ -354,7 +344,7 @@ const getSummaryReport = async (req, res) => {
           endDate: now
         },
         summary: {
-          totalIOCs: totalStats.total,
+          totalIOCs: totalInPeriod, // Changed to reflect IOCs within the timeRange
           newInPeriod: totalInPeriod,
           highRiskPercentage,
           activeSources: Object.keys(sourceStats).length
@@ -406,9 +396,7 @@ const getSummaryReport = async (req, res) => {
   }
 };
 
-/**
- * Manual trigger for IOC ingestion
- */
+// Manual trigger for IOC ingestion
 const triggerIngestion = async (req, res) => {
   try {
     // This should only be accessible to admins
@@ -433,9 +421,7 @@ const triggerIngestion = async (req, res) => {
   }
 };
 
-/**
- * Get fetch status
- */
+// Get fetch status 
 const getFetchStatus = async (req, res) => {
   try {
     const status = threatIntelService.getFetchStatus();
