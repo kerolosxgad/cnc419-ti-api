@@ -357,6 +357,8 @@ const verifyOTP = async (req, res) => {
       const oldStatus = user.status;
 
       // Update the user's status in the database
+      const newOTP = Math.floor(100000 + Math.random() * 900000); // 6-digit OTP
+      user.otp = newOTP.toString();
       user.status = "active";
 
       // Save the user with updated status
@@ -365,10 +367,10 @@ const verifyOTP = async (req, res) => {
       // Send a welcoming email only for newly activated users with role 'user'
       if (user.role === "user" && oldStatus !== "active") {
         const text =
-          "مرحباً بك في ستارت هب! تم تفعيل حسابك بنجاح. نحن سعداء لانضمامك إلى مجتمعنا. استمتع بتجربة فريدة ومثيرة معنا!";
-        const firstName = user.fullName.split(" ")[0];
+          "Welcome to CNC-419 Project! Your account has been successfully activated. We are happy to have you join our community. Enjoy a unique and exciting experience with us!";
+        const firstName = user.firstName;
         const welcomeHtml = tempMail(firstName, text);
-        await sendMail(email, "مرحباً بك في ستارت هب!", welcomeHtml);
+        await sendMail(email, "Welcome to CNC-419 Project!", welcomeHtml);
       }
 
       return res.status(200).json({ 
