@@ -5,7 +5,7 @@ const { isAuthorized } = require('../middleware/authorization');
 const threatIntelController = require('../controllers/threatIntelController');
 
 // Search and Query Routes
-router.get('/search', isAuthenticated, threatIntelController.searchIOCs);
+router.post('/search', isAuthenticated, threatIntelController.searchIOCs);
 router.get('/ioc/:id', isAuthenticated, threatIntelController.getIOCDetails);
 router.get('/correlate', isAuthenticated, threatIntelController.correlateIOCs);
 

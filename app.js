@@ -61,7 +61,7 @@ app.use("/user", userRoutes);
 app.use("/admin", adminRoutes);
 
 // Threat Intelligence routes
-app.use("/api/threat-intel", threatIntelRoutes);
+app.use("/threat-intel", threatIntelRoutes);
 
 // Serve static files from the uploads directory
 app.use("/uploads", express.static("uploads"));

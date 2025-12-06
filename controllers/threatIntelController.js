@@ -9,16 +9,16 @@ const threatIntelService = require("../services/threatIntel.cron");
  */
 const searchIOCs = async (req, res) => {
   try {
-    const { 
-      query, 
-      type, 
-      source, 
-      severity, 
-      limit = 100, 
+    const {
+      query,
+      type,
+      source,
+      severity,
+      limit = 100,
       offset = 0,
       sortBy = 'lastSeen',
       sortOrder = 'DESC'
-    } = req.query;
+    } = req.body;
 
     // Build where clause
     const where = {};
