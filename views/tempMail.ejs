@@ -1,0 +1,108 @@
+const ejs = require('ejs');
+
+function tempMail(name, text) {
+return ejs.render(`
+<!DOCTYPE html>
+<html lang="en" dir="ltr"></html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CNC-419 Project</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f3f4f6;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: auto;
+            padding: 20px;
+            background-color: #ffffff;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+
+        header img {
+            width: 60%;
+            height: auto;
+        }
+
+        main h3 {
+            color: #333333;
+        }
+
+        main p {
+            color: #666666;
+            margin-top: 10px;
+            line-height: 1.6;
+        }
+
+        .verification-code {
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 15px;
+            margin-top: 10px;
+            background-color: #9A3300;
+            color: #ffffff;
+            font-size: 3em;
+            font-weight: bolder;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        footer {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        footer p {
+            color: #999999;
+            line-height: 1.6;
+        }
+
+        footer a {
+            color: #9A3300;
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+
+<body dir="ltr"></body>
+    <div class="container">
+        <header>
+            <a href="https://https://www.codextech.org">
+                <img src="https://cnc-419-project.codextech.org/public/logo.png" alt="CNC-419 Project Logo" style="width: 25%; height: auto;">
+            </a>
+        </header>
+        <main>
+            <h3>Hello <%= name %>,</h3>
+            <p>
+                <%= text %>
+            </p>
+            <p>Wishing you a safe and secure online experience</p>
+            <p>Enjoy your experience with CNC-419 Project!</p>
+        </main>
+        <footer>
+            <p>For inquiries or support, please contact us via email <a href="mailto:info@codextech.org">info@codextech.org</a>.</p>
+            <p>© <%= new Date().getFullYear() %> <a href="https://https://www.codextech.org">CNC-419 Project</a>. All rights reserved.</p>
+        </footer>
+    </div>
+</body>
+
+</html>
+`, { name, text });
+}
+
+module.exports = { tempMail };
