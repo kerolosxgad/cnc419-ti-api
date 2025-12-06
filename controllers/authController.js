@@ -357,8 +357,6 @@ const verifyOTP = async (req, res) => {
       const oldStatus = user.status;
 
       // Update the user's status in the database
-      const newOTP = Math.floor(100000 + Math.random() * 900000); // 6-digit OTP
-      user.otp = newOTP.toString();
       user.status = "active";
 
       // Save the user with updated status
@@ -511,10 +509,10 @@ const resetPassword = async (req, res) => {
 
       // Send a confirmation email to the user
       const text =
-        "تم تغيير كلمة المرور الخاصة بك بنجاح. إذا لم تقم بهذا الإجراء، يرجى التواصل معنا فوراً.";
-      const firstName = user.fullName.split(" ")[0];
+        "Your password has been successfully changed. If you did not perform this action, please contact us immediately.";
+      const firstName = user.firstName;
       const html = tempMail(firstName, text);
-      await sendMail(email, "تم تغيير كلمة مرورك لحساب ستارت هب!", html);
+      await sendMail(email, "Your CNC-419 Project Password Has Been Changed!", html);
 
       return res.status(200).json({ 
         message_en: "Password reset successfully",
