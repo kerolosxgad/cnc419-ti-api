@@ -42,8 +42,8 @@ const corsOptions = {
 };
 
 // Apply CORS middleware with options
-app.use(cors(corsOptions));
-// app.use(cors()); // Close CORS rules
+// app.use(cors(corsOptions));
+app.use(cors()); // Close CORS rules
 
 // Set EJS as the view engine
 app.set("view engine", "ejs");
