@@ -154,20 +154,9 @@ const IOC_SOURCES = [
     key: "dshield_openioc",
     enabled: process.env.IOC_SOURCE_DSHIELD_OPENIOC === "true",
     url: process.env.IOC_URL_DSHIELD_OPENIOC,
-    type: "txt",
+    type: "json",
     filename: "dshield_openioc",
-    handler: "xml_extract",
-    schedule: "daily",
-    ttl: 24 * 60 * 60 * 1000 // 24 hours
-  },
-  {
-    name: "DShield ThreatFeeds",
-    key: "dshield_threatfeeds",
-    enabled: process.env.IOC_SOURCE_DSHIELD_THREATFEEDS === "true",
-    url: process.env.IOC_URL_DSHIELD_THREATFEEDS,
-    type: "txt",
-    filename: "dshield_threatfeeds",
-    handler: "xml_extract",
+    handler: "dshield_json",
     schedule: "daily",
     ttl: 24 * 60 * 60 * 1000 // 24 hours
   },
@@ -192,7 +181,7 @@ const IOC_SOURCES = [
 const axiosInstance = axios.create({
   timeout: IOC_FETCH_TIMEOUT_MS,
   headers: {
-    "User-Agent": "CNC-419 Project/1.0 (Threat Intelligence Platform)",
+    "User-Agent": "CNC419 TI Project/1.0 (Threat Intelligence Platform)",
   },
   maxRedirects: 5,
   validateStatus: (status) => status >= 200 && status < 400
@@ -460,6 +449,10 @@ async function genericFetcher(source) {
         result = await handleMalshareApi(source);
         break;
       
+      case "dshield_json":
+        result = await handleDShieldJson(source);
+        break;
+      
       default:
         throw new Error(`Unknown handler type: ${source.handler}`);
     }
@@ -688,6 +681,103 @@ async function handleMalshareApi(source) {
   }
 }
 
+async function handleDShieldJson(source) {
+  const response = await safeGet(source.url);
+  const content = Buffer.from(response.data).toString("utf-8");
+  
+  try {
+    const data = JSON.parse(content);
+    
+    if (!Array.isArray(data) || data.length === 0) {
+      logger.warn(`[${source.name}] No data returned from API`);
+      return { 
+        source: source.key, 
+        status: "success", 
+        count: 0, 
+        timestamp: new Date() 
+      };
+    }
+    
+    // Process each IP and extract it with threat metadata
+    const ipsWithMetadata = data
+      .filter(record => record.source && record.reports && record.targets)
+      .map(record => {
+        // Calculate severity based on report count and target count
+        // DShield provides: reports (total attack reports), targets (number of targets attacked)
+        const reportCount = parseInt(record.reports) || 0;
+        const targetCount = parseInt(record.targets) || 0;
+        
+        // Calculate threat score (0-100)
+        // More reports and targets = higher severity
+        const threatScore = Math.min(100, Math.log10(reportCount + 1) * 20 + Math.log10(targetCount + 1) * 15);
+        
+        // Map threat score to severity levels
+        let severity, confidence;
+        if (threatScore >= 80) {
+          severity = "critical";
+          confidence = 95;
+        } else if (threatScore >= 60) {
+          severity = "high";
+          confidence = 85;
+        } else if (threatScore >= 40) {
+          severity = "medium";
+          confidence = 75;
+        } else if (threatScore >= 20) {
+          severity = "low";
+          confidence = 65;
+        } else {
+          severity = "info";
+          confidence = 55;
+        }
+
+        return {
+          ip: record.source.trim(),
+          severity,
+          confidence,
+          reports: reportCount,
+          targets: targetCount,
+          threatScore: Math.round(threatScore)
+        };
+      });
+
+    if (ipsWithMetadata.length === 0) {
+      logger.warn(`[${source.name}] No valid IPs found in response`);
+      return { 
+        source: source.key, 
+        status: "success", 
+        count: 0, 
+        timestamp: new Date() 
+      };
+    }
+
+    // Create detailed output with metadata
+    const outputLines = [
+      `# DShield Top Malicious IPs`,
+      `# Generated: ${new Date().toISOString()}`,
+      `# Total IPs: ${ipsWithMetadata.length}`,
+      `# Format: IP|Severity|Confidence|Reports|Targets|ThreatScore`,
+      `#`,
+      ...ipsWithMetadata.map(ip => `${ip.ip}|${ip.severity}|${ip.confidence}|${ip.reports}|${ip.targets}|${ip.threatScore}`)
+    ];
+
+    const outputContent = outputLines.join('\n');
+    
+    // Save as text file with metadata
+    saveToFile(source.filename, outputContent, "txt");
+    
+    logger.info(`[${source.name}] ✓ Success (${ipsWithMetadata.length} IPs with threat scores)`);
+    return { 
+      source: source.key, 
+      status: "success", 
+      count: ipsWithMetadata.length, 
+      timestamp: new Date() 
+    };
+  } catch (error) {
+    logger.error(`[${source.name}] Error parsing JSON: ${error.message}`);
+    throw error;
+  }
+}
+
 // ============================================================
 // DATABASE OPERATIONS
 // ============================================================
@@ -718,7 +808,7 @@ async function upsertIndicators(items) {
       lastSeen: value.lastSeen || new Date(),
       severity: classification.severity,
       confidence: classification.confidence,
-      tags: JSON.stringify(value.tags || []),
+      tags: value.tags || [],
       raw: value,
     });
   }
@@ -854,6 +944,32 @@ function parseTXTFeed(filePath, source) {
     .filter(line => line && !line.startsWith("#") && !line.startsWith(";"));
 
   for (const line of lines) {
+    // Check if this is DShield format with metadata: IP|Severity|Confidence|Reports|Targets|ThreatScore
+    if (source === "DShieldOpenIOC" && line.includes("|")) {
+      const parts = line.split("|").map(p => p.trim());
+      
+      if (parts.length >= 4) {
+        const [ip, severity, confidence, reports, targets, threatScore] = parts;
+        
+        // Validate IP format
+        const ipMatch = ip.match(/^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/);
+        if (ipMatch) {
+          indicators.push({
+            type: "ipv4",
+            value: ipMatch[1],
+            source,
+            description: `Malicious IP from DShield (Reports: ${reports || 'N/A'}, Targets: ${targets || 'N/A'}, Threat Score: ${threatScore || 'N/A'})`,
+            firstSeen: new Date(),
+            lastSeen: new Date(),
+            confidence: parseInt(confidence) || 80,
+            tags: [source.toLowerCase(), "ipv4", "malicious", severity || "medium"],
+          });
+        }
+        continue;
+      }
+    }
+    
+    // Standard IP parsing for other sources
     const ipMatch = line.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
 
     if (ipMatch) {
@@ -865,7 +981,7 @@ function parseTXTFeed(filePath, source) {
         firstSeen: new Date(),
         lastSeen: new Date(),
         confidence: 80,
-        tags: [source, "ipv4"],
+        tags: [source.toLowerCase(), "ipv4"],
       });
     }
   }
@@ -885,29 +1001,76 @@ function parseOTXPulse(filePath) {
     const pulse = content;
 
     if (pulse.indicators && Array.isArray(pulse.indicators)) {
+      // Build comprehensive tags from pulse metadata
+      const pulseTags = [];
+      
+      // Add pulse-level tags
+      if (pulse.tags && Array.isArray(pulse.tags) && pulse.tags.length > 0) {
+        pulseTags.push(...pulse.tags);
+      }
+      
+      // Add MITRE ATT&CK IDs as tags
+      if (pulse.attack_ids && Array.isArray(pulse.attack_ids) && pulse.attack_ids.length > 0) {
+        pulseTags.push(...pulse.attack_ids);
+      }
+      
+      // Add malware families as tags
+      if (pulse.malware_families && Array.isArray(pulse.malware_families) && pulse.malware_families.length > 0) {
+        pulseTags.push(...pulse.malware_families.map(m => m.display_name || m));
+      }
+      
+      // Add targeted countries as tags (if available)
+      if (pulse.targeted_countries && Array.isArray(pulse.targeted_countries) && pulse.targeted_countries.length > 0) {
+        pulseTags.push(...pulse.targeted_countries);
+      }
+      
+      // Add adversary as tag (if available)
+      if (pulse.adversary && pulse.adversary.trim() !== "") {
+        pulseTags.push(pulse.adversary);
+      }
+      
+      // Always include "otx" as a tag
+      pulseTags.push("otx");
+      
+      // Remove duplicates and empty strings
+      const uniqueTags = [...new Set(pulseTags.filter(tag => tag && tag.trim() !== ""))];
+
       for (const ind of pulse.indicators) {
         const type = (ind.type || "").toLowerCase();
         const value = ind.indicator || ind.content;
 
         if (value) {
+          // Map OTX type to our type system
+          let mappedType = type;
+          if (type === "ipv4") {
+            mappedType = "ipv4";
+          } else if (type === "domain") {
+            mappedType = "domain";
+          } else if (type === "url") {
+            mappedType = "url";
+          } else if (type.includes("filehash-md5") || type === "md5") {
+            mappedType = "md5";
+          } else if (type.includes("filehash-sha1") || type === "sha1") {
+            mappedType = "sha1";
+          } else if (type.includes("filehash-sha256") || type === "sha256") {
+            mappedType = "sha256";
+          } else if (type.includes("hash")) {
+            // Default hash type based on length
+            if (value.length === 32) mappedType = "md5";
+            else if (value.length === 40) mappedType = "sha1";
+            else if (value.length === 64) mappedType = "sha256";
+            else mappedType = "hash";
+          }
+          
           indicators.push({
-            type:
-              type === "ipv4"
-                ? "ipv4"
-                : type === "domain"
-                ? "domain"
-                : type === "url"
-                ? "url"
-                : type.includes("hash")
-                ? "md5"
-                : type,
+            type: mappedType,
             value,
             source: "OTX",
             description: pulse.name || ind.description || "OTX Indicator",
             firstSeen: new Date(ind.created || pulse.created),
             lastSeen: new Date(ind.modified || pulse.modified),
             confidence: ind.confidence || 70,
-            tags: pulse.tags || ["otx"],
+            tags: uniqueTags,
           });
         }
       }
@@ -1019,8 +1182,7 @@ async function processIOCFeeds() {
     
     // New sources
     { file: "ciarmy.txt", source: "CIArmy", parser: parseTXTFeed },
-    { file: "dshield_openioc.txt", source: "DShieldOpenIOC", parser: parseTXTFeed },
-    { file: "dshield_threatfeeds.txt", source: "DShieldThreatFeeds", parser: parseTXTFeed },
+    { file: "dshield_openioc.txt", source: "DShield", parser: parseTXTFeed },
     { file: "malshare_getlist.txt", source: "MalShare", parser: parseTXTFeed },
   ];
 

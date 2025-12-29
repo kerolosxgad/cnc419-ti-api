@@ -225,7 +225,7 @@ async function mergeIPLists() {
   const outputDir = ensureDirectory(NORMALIZE_OUTPUT_PATH);
   const outputFile = path.join(outputDir, OUTPUT_IP_LIST);
 
-  const prefixes = ["ciarmy", "dshield_openioc", "dshield_threatfeeds", "emerging_threats", "spamhaus"];
+  const prefixes = ["ciarmy", "dshield_openioc", "emerging_threats", "spamhaus"];
   
   // Get only new/updated files
   const newFiles = getNewFiles(inputDir, prefixes);

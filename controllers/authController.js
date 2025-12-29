@@ -158,7 +158,7 @@ const register = async (req, res) => {
 
     // Send the OTP to the user's email
     const html = otpMail(firstName, otp);
-    await sendMail(email, "CNC-419 Project Account Verification Code", html);
+    await sendMail(email, "CNC419 TI Project Account Verification Code", html);
 
     return res.status(201).json({
       message_en: "User registered successfully. Please activate your account using the verification code sent to your email",
@@ -365,10 +365,10 @@ const verifyOTP = async (req, res) => {
       // Send a welcoming email only for newly activated users with role 'user'
       if (user.role === "user" && oldStatus !== "active") {
         const text =
-          "Welcome to CNC-419 Project! Your account has been successfully activated. We are happy to have you join our community. Enjoy a unique and exciting experience with us!";
+          "Welcome to CNC419 TI Project! Your account has been successfully activated. We are happy to have you join our community. Enjoy a unique and exciting experience with us!";
         const firstName = user.firstName;
         const welcomeHtml = tempMail(firstName, text);
-        await sendMail(email, "Welcome to CNC-419 Project!", welcomeHtml);
+        await sendMail(email, "Welcome to CNC419 TI Project!", welcomeHtml);
       }
 
       return res.status(200).json({ 
@@ -425,7 +425,7 @@ const resendOTP = async (req, res) => {
       // Send the OTP to the user's email
       const firstName = user.firstName;
       const html = otpMail(firstName, otp);
-      await sendMail(email, "CNC-419 Project Account Verification Code", html);
+      await sendMail(email, "CNC419 TI Project Account Verification Code", html);
 
       return res.status(200).json({ 
         message_en: "Verification code sent successfully to your email",
@@ -512,7 +512,7 @@ const resetPassword = async (req, res) => {
         "Your password has been successfully changed. If you did not perform this action, please contact us immediately.";
       const firstName = user.firstName;
       const html = tempMail(firstName, text);
-      await sendMail(email, "Your CNC-419 Project Password Has Been Changed!", html);
+      await sendMail(email, "Your CNC419 TI Project Password Has Been Changed!", html);
 
       return res.status(200).json({ 
         message_en: "Password reset successfully",

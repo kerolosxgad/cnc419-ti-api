@@ -71,7 +71,7 @@ app.use("/public", express.static("public"));
 
 // Health check endpoint
 app.get("/health", (req, res) => {
-  res.status(200).json({ status: "OK", message: "CNC-419 Project is healthy" });
+  res.status(200).json({ status: "OK", message: "CNC419 TI Project is healthy" });
 });
 
 // Serve the main page with ASCII art
@@ -108,7 +108,7 @@ app.get("/", (req, res) => {
 // Start the server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log("CNC-419 Project server started");
+  console.log("CNC419 TI Project server started");
   console.log(`Server is running on port ${PORT}`);
 });
 

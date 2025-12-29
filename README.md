@@ -1,4 +1,4 @@
-# CNC-419 Project
+# CNC419 TI Project API
 
 This repository contains a Node.js Express application that uses **Sequelize** for database interactions and is deployed using **PM2** for process management. This README provides steps to run and deploy the application.
 
@@ -18,8 +18,8 @@ Make sure you have the following software installed:
 First, clone the repository to your local machine:
 
 ```bash
-git clone https://github.com/codexeg/cnc-419-project.git
-cd cnc-419-project
+git clone https://github.com/codexeg/cnc419-ti-api.git
+cd cnc419-ti-api
 ```
 
 ### 2. Install Dependencies

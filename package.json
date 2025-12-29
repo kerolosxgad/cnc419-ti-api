@@ -1,22 +1,23 @@
 {
-  "name": "cnc-419-project",
+  "name": "cnc419-ti-api",
   "version": "1.0.0",
   "main": "app.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon app.js"
+    "dev": "nodemon app.js",
+    "start": "node app.js"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/codexeg/cnc-419-project.git"
+    "url": "git+https://github.com/codexeg/cnc419-ti-api.git"
   },
   "keywords": [],
   "author": "CodeX Technologies",
   "license": "GPL-3.0-or-later",
   "bugs": {
-    "url": "https://github.com/codexeg/cnc-419-project/issues"
+    "url": "https://github.com/codexeg/cnc419-ti-api/issues"
   },
-  "homepage": "https://github.com/codexeg/cnc-419-project#readme",
+  "homepage": "https://github.com/codexeg/cnc419-ti-api#readme",
   "description": "An API that consumes open threat feeds (OTX, VirusTotal, MISP) and correlates IOCs",
   "dependencies": {
     "axios": "^1.12.0",
