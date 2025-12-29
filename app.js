@@ -36,14 +36,14 @@ app.use(express.json());
 
 // Middleware for CORS
 const corsOptions = {
-  origin: ["http://localhost:3000"],
+  origin: ["http://localhost:3000", "https://cnc419.codetech.org/"],
   credentials: true,
   optionsSuccessStatus: 200,
 };
 
 // Apply CORS middleware with options
-// app.use(cors(corsOptions));
-app.use(cors()); // Close CORS rules
+app.use(cors(corsOptions));
+// app.use(cors()); // Close CORS rules
 
 // Set EJS as the view engine
 app.set("view engine", "ejs");
