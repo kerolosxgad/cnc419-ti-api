@@ -36,7 +36,7 @@ app.use(express.json());
 
 // Middleware for CORS
 const corsOptions = {
-  origin: ["http://localhost:3000", "https://cnc419.codetech.org/"],
+  origin: ["http://localhost:3000", "https://cnc419.codextech.org"],
   credentials: true,
   optionsSuccessStatus: 200,
 };
