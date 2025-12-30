@@ -277,19 +277,15 @@ const getSummaryReport = async (req, res) => {
         startDate = new Date(now - 7 * 24 * 60 * 60 * 1000);
     }
 
-    // Get all IOCs within time range (active during period)
+    // Get IOCs created within time range
     const recentIOCs = await ThreatIndicator.findAll({
-      where: {
-        lastSeen: { [Op.gte]: startDate }
-      }
-    });
-
-    // Get newly created IOCs in the time range
-    const newIOCs = await ThreatIndicator.count({
       where: {
         createdAt: { [Op.gte]: startDate }
       }
     });
+
+    // Get newly created IOCs in the time range (same as recentIOCs count)
+    const newIOCs = recentIOCs.length;
 
     // Get total statistics (overall, but we'll use period-specific for totalIOCs)
     const totalStats = await threatIntelService.getStats();
@@ -316,7 +312,7 @@ const getSummaryReport = async (req, res) => {
     const topThreats = await ThreatIndicator.findAll({
       where: {
         severity: { [Op.in]: ['critical', 'high'] },
-        lastSeen: { [Op.gte]: startDate }
+        createdAt: { [Op.gte]: startDate }
       },
       order: [
         ['severity', 'DESC'],
@@ -351,8 +347,8 @@ const getSummaryReport = async (req, res) => {
           endDate: now
         },
         summary: {
-          totalIOCs: totalInPeriod, // IOCs active/seen within the timeRange
-          newInPeriod: newIOCs, // IOCs created within the timeRange
+          totalIOCs: totalInPeriod, // IOCs created within the timeRange
+          newInPeriod: newIOCs, // IOCs created within the timeRange (same as totalIOCs)
           highRiskPercentage,
           activeSources: Object.keys(sourceStats).length
         },
