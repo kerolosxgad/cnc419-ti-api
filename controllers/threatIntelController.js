@@ -277,10 +277,17 @@ const getSummaryReport = async (req, res) => {
         startDate = new Date(now - 7 * 24 * 60 * 60 * 1000);
     }
 
-    // Get all IOCs within time range
+    // Get all IOCs within time range (active during period)
     const recentIOCs = await ThreatIndicator.findAll({
       where: {
         lastSeen: { [Op.gte]: startDate }
+      }
+    });
+
+    // Get newly created IOCs in the time range
+    const newIOCs = await ThreatIndicator.count({
+      where: {
+        createdAt: { [Op.gte]: startDate }
       }
     });
 
@@ -344,8 +351,8 @@ const getSummaryReport = async (req, res) => {
           endDate: now
         },
         summary: {
-          totalIOCs: totalInPeriod, // Changed to reflect IOCs within the timeRange
-          newInPeriod: totalInPeriod,
+          totalIOCs: totalInPeriod, // IOCs active/seen within the timeRange
+          newInPeriod: newIOCs, // IOCs created within the timeRange
           highRiskPercentage,
           activeSources: Object.keys(sourceStats).length
         },
